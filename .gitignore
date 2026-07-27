@@ -1,0 +1,24 @@
+# --- Environment / secrets ---
+venv/
+.env
+.env.*
+*.env
+
+# --- Local models (large, do not commit) ---
+local-models/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- OS / editor cruft ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+.vscode/
+.idea/

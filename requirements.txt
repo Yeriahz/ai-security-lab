@@ -1,0 +1,9 @@
+# Core dependencies for the AI-security lab environment
+# Install with:  pip install -r requirements.txt   (after activating venv)
+#
+# NOTE: Heavy ML packages (torch, transformers, etc.) are intentionally
+# left out for now — add them later once you've decided on CPU/GPU builds.
+
+requests
+python-dotenv
+jupyter
