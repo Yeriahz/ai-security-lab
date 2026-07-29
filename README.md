@@ -1,84 +1,95 @@
-# AI Security Lab
+# ai-security-lab
 
-A local study and lab environment for AI / LLM security research.
+A hardened VirtualBox sandbox for safely running AI agent frameworks that execute
+model-generated code, plus scripts that verify the isolation actually holds.
 
-## Folder layout
+Built while studying NVIDIA's NOOA agent framework, whose own documentation is
+blunt about the risk: generated code may delete files, send private data to
+uncontrolled locations, or modify its environment, and the containment boundary
+has to be OS-level isolation rather than in-process validation.
 
-| Folder           | Purpose                                                             |
-|------------------|--------------------------------------------------------------------|
-| `frameworks/`    | Reference material — OWASP LLM Top 10, MITRE ATLAS notes, etc.      |
-| `labs/`          | Hands-on exercises and practical labs.                             |
-| `notes/`         | Personal writeups and study notes (markdown).                      |
-| `tools/`         | Cloned repos and helper scripts.                                  |
-| `local-models/`  | Open-weight models downloaded for local testing (git-ignored).    |
-| `venv/`          | Python virtual environment (git-ignored).                         |
+Writeup: [The Security Check That Couldn't Fail](https://dev.to/yeriahz/the-security-check-that-couldnt-fail-2d4h)
 
-## Requirements
+## Scripts
 
-- **Python 3.14** (installed per-user)
-- **git**
+Both are PowerShell, tested on Windows 10 with VirtualBox 7.2.
 
-## Setting up the Python environment
+### `labs/Create-AISecLabVM.ps1`
 
-The virtual environment already exists at `venv/`. To use it:
+Creates the sandbox VM with isolation settings baked in rather than clicked
+through a GUI:
 
-### Activate (PowerShell)
+- No shared folders
+- Clipboard and clipboard file transfers disabled
+- Drag and drop disabled
+- 3D acceleration off
+- Audio and USB controllers off
+- Remote display (VRDE) off
+- NAT networking with a virtio NIC
 
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-> If you get an execution-policy error the first time, allow scripts for your
-> user (this is a per-user setting, not system-wide):
->
-> ```powershell
-> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-> ```
-
-### Activate (Command Prompt / cmd.exe)
-
-```bat
-venv\Scripts\activate.bat
-```
-
-### Deactivate (any shell)
+After creating the VM it reads the settings back via
+`showvminfo --machinereadable` and asserts each one. Setting a control and
+verifying it applied are different things, and the script fails loudly if any
+guarantee can't be confirmed.
 
 ```powershell
-deactivate
+powershell -ExecutionPolicy Bypass -File .\labs\Create-AISecLabVM.ps1
 ```
 
-## Installing dependencies
+### `labs/Verify-AISecLabVM.ps1`
 
-Once the venv is activated:
+Standalone verification, meant to be run before every risky session. Config
+drifts, and a stray GUI click can re-enable the clipboard.
+
+It shares no code with the creation script by design: the thing that builds the
+configuration should not be the thing that certifies it.
 
 ```powershell
-pip install -r requirements.txt
+powershell -ExecutionPolicy Bypass -File .\labs\Verify-AISecLabVM.ps1
 ```
 
-Current baseline packages (see `requirements.txt`):
+**Exit codes**
 
-- `requests` — HTTP client
-- `python-dotenv` — load secrets from a `.env` file
-- `jupyter` — notebooks for interactive experiments
+| Code | Meaning |
+|------|---------|
+| 0 | All isolation assertions passed |
+| 1 | An assertion failed. Do not run untrusted code in this VM |
+| 2 | Preflight error (VBoxManage missing, VM not found). Nothing was verified |
 
-> Heavy ML packages (PyTorch, transformers, etc.) are intentionally **not**
-> included yet. Add them deliberately once you've picked CPU vs GPU builds —
-> and note that brand-new Python releases sometimes lag on prebuilt wheels.
+Exit 2 is deliberately distinct from exit 1. Reporting "all clear" for a VM the
+script could not read would be the worst possible failure mode, so it refuses to
+report at all.
 
-## Secrets
+Every value check goes through a helper that treats a missing key as an explicit
+failure rather than a silent pass. That guard exists because the first version of
+this script did the opposite: one check searched for a setting under the wrong
+name, got an empty result, and took the success branch. It would have printed a
+green `[OK]` with the clipboard wide open. The writeup linked above is about that
+bug.
 
-Store API keys and secrets in a `.env` file at the project root. It is
-git-ignored by default. Load them in Python with:
+The verifier has been tested against a deliberately broken configuration (a
+shared folder pointed at the host drive, clipboard set to bidirectional) to
+confirm it fails when it should. A control reporting success only proves it can
+produce that output.
 
-```python
-from dotenv import load_dotenv
-import os
+## Layout
 
-load_dotenv()
-api_key = os.getenv("MY_API_KEY")
+```
+frameworks/    reference material
+labs/          the scripts above
+notes/         study notes (gitignored)
+tools/         cloned repos for study
+local-models/  open-weight models (gitignored)
 ```
 
-## Reference material
+## Caveats
 
-- **OWASP LLM Top 10** — see `notes/owasp-llm-top10.md`
-- **MITRE ATLAS** — see `notes/mitre-atlas.md`
+A VM is a strong boundary, not a perfect one. Hypervisor escapes exist. This
+setup is proportionate for studying agent frameworks and prompt-injection
+behavior; live malware analysis wants separate physical hardware.
+
+Skipping VirtualBox Guest Additions is intentional. Guest Additions is what
+provides shared folders, clipboard sync, and drag and drop, so not installing it
+makes those channels absent rather than merely disabled.
+
+The scripts were built with AI assistance.

@@ -22,3 +22,8 @@ Desktop.ini
 .DS_Store
 .vscode/
 .idea/
+
+# Personal notes and screenshots
+notes/Notes Write-up.txt
+*.png
+*.PNG
