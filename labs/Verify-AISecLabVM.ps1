@@ -33,12 +33,22 @@ param(
     # -Detonate: assert the guest has no route out. Use this before running
     # untrusted code. Off by default because you need network to install
     # packages, and a check that always fails is one people learn to ignore.
-    [switch]$Detonate
+    [switch]$Detonate,
+
+    # Known-good key set. Regenerate after a deliberate config or
+    # VirtualBox change, never to silence a failure you have not read.
+    [string]$BaselinePath = ""
 )
 
 #Requires -Version 5.1
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+# $PSScriptRoot is not populated when PowerShell 5.1 evaluates param block
+# defaults, so the baseline path is resolved here instead.
+if (-not $BaselinePath) {
+    $BaselinePath = Join-Path $PSScriptRoot "baseline-keys.txt"
+}
 
 # ==============================================================================
 # OUTPUT HELPERS
@@ -135,6 +145,48 @@ function Assert-EgressCut {
     Write-Fail "Egress is LIVE (nic1=$nic, cable=$cable) - guest can reach the internet and your LAN"
 }
 
+# Compares the FULL key set the platform reports against a known-good baseline.
+# The value assertions above can only catch settings someone thought to list.
+# This catches renames, removals, and keys that appear after an upgrade,
+# including channels that were never enumerated in the first place.
+#
+#   in baseline, not reported  -> FAILURE. The rename case: an assertion
+#                                 would be searching for a key that is gone.
+#   reported, not in baseline  -> WARNING. Review it, then refresh the baseline.
+function Assert-KeySet {
+    param(
+        [Parameter(Mandatory)][string[]]$Info,
+        [Parameter(Mandatory)][string]$BaselinePath
+    )
+
+    if (-not (Test-Path $BaselinePath)) {
+        Write-Warn "No key baseline at '$BaselinePath' - key-set drift NOT checked"
+        $script:warnings += "Key baseline missing - drift not checked"
+        return
+    }
+
+    $baseline = @(Get-Content $BaselinePath | Where-Object { $_ -ne '' })
+    $current  = @($Info | Where-Object { $_ -match '=' } |
+                 ForEach-Object { ($_ -split '=')[0] } | Sort-Object -Unique)
+
+    $missing = @($baseline | Where-Object { $current -notcontains $_ })
+    $added   = @($current  | Where-Object { $baseline -notcontains $_ })
+
+    foreach ($k in $missing) {
+        $script:failures += "Key '$k' in baseline but NOT reported by this VirtualBox"
+        Write-Fail "Key '$k' missing from showvminfo output (renamed or removed?)"
+    }
+
+    foreach ($k in $added) {
+        $script:warnings += "New key '$k' not in baseline"
+        Write-Warn "New key '$k' - review it, then refresh the baseline"
+    }
+
+    if ($missing.Count -eq 0 -and $added.Count -eq 0) {
+        Write-Ok "Key set matches baseline ($($baseline.Count) keys)"
+    }
+}
+
 $script:failures = @()
 $script:warnings = @()
 
@@ -213,6 +265,10 @@ foreach ($c in $checks) {
 if ($Detonate) {
     Assert-EgressCut -Info $info
 }
+
+# Always on. The assertions above check settings someone chose to list;
+# this checks the shape of the list itself.
+Assert-KeySet -Info $info -BaselinePath $BaselinePath
 
 # ==============================================================================
 # INFORMATIONAL - does not affect exit code, but you should look at it
