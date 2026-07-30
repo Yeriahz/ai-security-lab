@@ -48,6 +48,33 @@ configuration should not be the thing that certifies it.
 powershell -ExecutionPolicy Bypass -File .\labs\Verify-AISecLabVM.ps1
 ```
 
+**`-Detonate`**
+
+Adds an egress assertion. Without it the script reports network posture
+informationally; with it, a guest that can still reach the internet or your LAN
+is a failure.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\labs\Verify-AISecLabVM.ps1 -Detonate
+```
+
+Off by default because you need network to install packages, and a check that
+always fails is one people learn to ignore.
+
+**Key-set drift**
+
+Always on. The value assertions can only catch settings someone thought to list.
+This compares the full property key set VirtualBox reports against
+`labs/baseline-keys.txt`:
+
+- a key in the baseline the platform no longer reports is a **failure**, since
+  an assertion would be searching for something that is gone
+- a key the platform reports that is not in the baseline is a **warning**, worth
+  reviewing before you refresh the baseline
+
+Regenerate the baseline after a deliberate config or VirtualBox change. Never to
+silence a failure you have not read.
+
 **Exit codes**
 
 | Code | Meaning |
