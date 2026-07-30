@@ -28,7 +28,12 @@
 [CmdletBinding()]
 param(
     [string]$VMName     = "ai-sec-lab",
-    [string]$VBoxManage = "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe"
+    [string]$VBoxManage = "C:\Program Files\Oracle\VirtualBox\VBoxManage.exe",
+
+    # -Detonate: assert the guest has no route out. Use this before running
+    # untrusted code. Off by default because you need network to install
+    # packages, and a check that always fails is one people learn to ignore.
+    [switch]$Detonate
 )
 
 #Requires -Version 5.1
@@ -93,6 +98,41 @@ function Assert-VMProp {
         return
     }
     Write-Ok "$Label = $actual"
+}
+
+# Asserts the guest has no route out. Two ways to satisfy it:
+#   nic1 is none/intnet/hostonly  -> no route regardless of cable
+#   cable is disconnected         -> adapter could route, but link is down
+# Fail-closed: a missing key is a failure, not a pass.
+function Assert-EgressCut {
+    param([Parameter(Mandatory)][string[]]$Info)
+
+    $nic = Get-VMProp -Info $Info -Key 'nic1'
+    if ($null -eq $nic) {
+        $script:failures += "Egress - key 'nic1' NOT FOUND in showvminfo output"
+        Write-Fail "Egress - key 'nic1' missing, CANNOT VERIFY"
+        return
+    }
+
+    if (@('none','intnet','hostonly') -contains $nic) {
+        Write-Ok "Egress cut - nic1 is '$nic' (no route out)"
+        return
+    }
+
+    $cable = Get-VMProp -Info $Info -Key 'cableconnected1'
+    if ($null -eq $cable) {
+        $script:failures += "Egress - key 'cableconnected1' NOT FOUND (nic1='$nic' can route out)"
+        Write-Fail "Egress - key 'cableconnected1' missing, CANNOT VERIFY"
+        return
+    }
+
+    if ($cable -eq 'off') {
+        Write-Ok "Egress cut - nic1 is '$nic' but cable is disconnected"
+        return
+    }
+
+    $script:failures += "Egress is LIVE (nic1='$nic', cableconnected1='$cable')"
+    Write-Fail "Egress is LIVE (nic1=$nic, cable=$cable) - guest can reach the internet and your LAN"
 }
 
 $script:failures = @()
@@ -167,6 +207,13 @@ foreach ($c in $checks) {
     Assert-VMProp -Info $info -Key $c.Key -Expected $c.Expected -Label $c.Label
 }
 
+# Egress is an assertion only in detonation mode. Without -Detonate the
+# network posture is still reported below, but informationally: it does
+# not affect the exit code.
+if ($Detonate) {
+    Assert-EgressCut -Info $info
+}
+
 # ==============================================================================
 # INFORMATIONAL - does not affect exit code, but you should look at it
 # ==============================================================================
@@ -187,7 +234,13 @@ if ($nic1 -eq 'none' -or $cable -eq 'off') {
 } else {
     Write-Warn "Network is LIVE (nic1=$nic1, cable=$cable)"
     Write-Info "Guest can reach the internet AND your LAN. Before untrusted code:"
-    Write-Info "  VBoxManage modifyvm `"$VMName`" --cable-connected1 off"
+    # modifyvm only works on a powered-off VM; a running one needs controlvm.
+    # Printing the wrong command is advice that fails when you follow it.
+    if ((Get-VMProp -Info $info -Key 'VMState') -eq 'running') {
+        Write-Info "  VBoxManage controlvm `"$VMName`" setlinkstate1 off"
+    } else {
+        Write-Info "  VBoxManage modifyvm `"$VMName`" --cable-connected1 off"
+    }
     $script:warnings += "Network live (nic1=$nic1, cable=$cable)"
 }
 
