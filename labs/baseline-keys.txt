@@ -1,3 +1,4 @@
+#vmstate=poweroff
 "IDE-0-0"
 "IDE-0-1"
 "IDE-1-0"
@@ -47,13 +48,7 @@ forwardBroadcast
 Forwarding(0)
 graphicscontroller
 groups
-GuestAdditionsFacility_Graphics Mode
-GuestAdditionsFacility_Seamless Mode
-GuestAdditionsFacility_VirtualBox Base Driver
-GuestAdditionsRunLevel
-GuestAdditionsVersion
 GuestMemoryBalloon
-GuestOSType
 hardwareuuid
 hidkeyboard
 hidpointing
@@ -105,7 +100,6 @@ recording_enabled
 recording_screens
 recording_started
 rtcuseutc
-SessionName
 SnapFldr
 SnapshotDescription
 SnapshotDescription-1
@@ -143,15 +137,12 @@ uart3
 uart4
 usb
 UUID
-VideoMode
 virtvmsavevmload
 vmprocpriority
 VMState
 VMStateChangeTime
 vram
 vrde
-VRDEActiveConnection
-VRDEClients
 vtxux
 vtxvpid
 x2apic

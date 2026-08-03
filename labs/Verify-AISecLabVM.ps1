@@ -165,7 +165,32 @@ function Assert-KeySet {
         return
     }
 
-    $baseline = @(Get-Content $BaselinePath | Where-Object { $_ -ne '' })
+    $lines = @(Get-Content $BaselinePath)
+
+    # The reported key set depends on VM state: a running VM emits runtime-only
+    # keys (GuestAdditionsFacility_*, SessionName, VideoMode, VRDEClients, and
+    # others) that a powered-off VM does not. Comparing across states reports
+    # every one of those as a rename, which is a false positive. So the baseline
+    # records the state it was captured in, and a mismatch is reported as
+    # NOT CHECKED rather than as drift. "I could not verify" is not "this is fine".
+    $baselineState = ($lines | Where-Object { $_ -match '^#vmstate=' } |
+                      Select-Object -First 1) -replace '^#vmstate=', ''
+    $currentState  = Get-VMProp -Info $Info -Key 'VMState'
+
+    if (-not $baselineState) {
+        Write-Warn "Baseline records no VM state - key-set drift NOT checked"
+        Write-Info "Regenerate it with Update-AISecLabBaseline.ps1"
+        $script:warnings += "Baseline has no state header - drift not checked"
+        return
+    }
+    if ($baselineState -ne $currentState) {
+        Write-Warn "Baseline captured with VMState=$baselineState, this VM is $currentState"
+        Write-Info "Key-set drift NOT checked. Compare in the state you baselined."
+        $script:warnings += "Baseline state mismatch - drift not checked"
+        return
+    }
+
+    $baseline = @($lines | Where-Object { $_ -ne '' -and $_ -notmatch '^#' })
     $current  = @($Info | Where-Object { $_ -match '=' } |
                  ForEach-Object { ($_ -split '=')[0] } | Sort-Object -Unique)
 

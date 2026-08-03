@@ -1,0 +1,11 @@
+2026-08-03T11:31:37.3545761-07:00  UPDATED  vm=ai-sec-lab  keys=148
+2026-08-03T11:31:37.3545761-07:00    -removed  GuestAdditionsFacility_Graphics Mode
+2026-08-03T11:31:37.3545761-07:00    -removed  GuestAdditionsFacility_Seamless Mode
+2026-08-03T11:31:37.3545761-07:00    -removed  GuestAdditionsFacility_VirtualBox Base Driver
+2026-08-03T11:31:37.3545761-07:00    -removed  GuestAdditionsRunLevel
+2026-08-03T11:31:37.3545761-07:00    -removed  GuestAdditionsVersion
+2026-08-03T11:31:37.3545761-07:00    -removed  GuestOSType
+2026-08-03T11:31:37.3545761-07:00    -removed  SessionName
+2026-08-03T11:31:37.3545761-07:00    -removed  VideoMode
+2026-08-03T11:31:37.3545761-07:00    -removed  VRDEActiveConnection
+2026-08-03T11:31:37.3545761-07:00    -removed  VRDEClients
