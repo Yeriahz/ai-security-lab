@@ -72,8 +72,12 @@ This compares the full property key set VirtualBox reports against
 - a key the platform reports that is not in the baseline is a **warning**, worth
   reviewing before you refresh the baseline
 
-Regenerate the baseline after a deliberate config or VirtualBox change. Never to
-silence a failure you have not read.
+The reported key set depends on VM state. A running VM emits runtime-only keys
+(`GuestAdditionsFacility_*`, `SessionName`, `VideoMode`, `VRDEClients` and
+others) that a powered-off VM does not, so the baseline records the state it was
+captured in on a `#vmstate=` header line. A mismatch is reported as **not
+checked** rather than as drift, because comparing across states would flag every
+runtime key as a rename.
 
 **Exit codes**
 
@@ -98,6 +102,34 @@ The verifier has been tested against a deliberately broken configuration (a
 shared folder pointed at the host drive, clipboard set to bidirectional) to
 confirm it fails when it should. A control reporting success only proves it can
 produce that output.
+
+### `labs/Update-AISecLabBaseline.ps1`
+
+The only supported way to regenerate the baseline. What it refuses to do is the
+point:
+
+- there is no `-Force` and no non-interactive mode, so the silencing cannot be
+  scripted or scheduled away
+- a key that disappeared has to be typed back by hand before it is dropped. That
+  is the rename case, the one that leaves an assertion searching for something
+  that no longer exists, and accepting it should cost more than pressing y
+- new keys are accepted in bulk, but every one is printed first
+- every accepted change is appended to `labs/baseline-history.log` with a
+  timestamp, so "when did this key go away and who decided that was fine" has an
+  answer later
+- if nothing changed, the file is not rewritten at all
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\labs\Update-AISecLabBaseline.ps1
+```
+
+Regenerate after a deliberate config or VirtualBox change. Never to silence a
+failure you have not read.
+
+The first thing this script caught was a bug in the check it maintains. The
+original baseline was captured while the VM was running, so a later comparison
+against a powered-off VM reported ten runtime-only keys as renames. A bulk
+regenerate would have dropped them silently. Hence the `#vmstate=` header.
 
 ## Layout
 
