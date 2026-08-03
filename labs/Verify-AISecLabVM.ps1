@@ -159,34 +159,44 @@ function Assert-KeySet {
         [Parameter(Mandatory)][string]$BaselinePath
     )
 
-    if (-not (Test-Path $BaselinePath)) {
-        Write-Warn "No key baseline at '$BaselinePath' - key-set drift NOT checked"
-        $script:warnings += "Key baseline missing - drift not checked"
-        return
-    }
-
-    $lines = @(Get-Content $BaselinePath)
-
     # The reported key set depends on VM state: a running VM emits runtime-only
     # keys (GuestAdditionsFacility_*, SessionName, VideoMode, VRDEClients, and
     # others) that a powered-off VM does not. Comparing across states reports
-    # every one of those as a rename, which is a false positive. So the baseline
-    # records the state it was captured in, and a mismatch is reported as
-    # NOT CHECKED rather than as drift. "I could not verify" is not "this is fine".
-    $baselineState = ($lines | Where-Object { $_ -match '^#vmstate=' } |
-                      Select-Object -First 1) -replace '^#vmstate=', ''
-    $currentState  = Get-VMProp -Info $Info -Key 'VMState'
-
-    if (-not $baselineState) {
-        Write-Warn "Baseline records no VM state - key-set drift NOT checked"
-        Write-Info "Regenerate it with Update-AISecLabBaseline.ps1"
-        $script:warnings += "Baseline has no state header - drift not checked"
+    # every one of those as a rename, which is a false positive.
+    #
+    # One baseline per state, selected by the state we are actually in. A single
+    # baseline would mean drift goes unchecked in whichever state it was not
+    # captured in - and for this VM that would be the running one, which is
+    # exactly when untrusted code is executing.
+    $currentState = Get-VMProp -Info $Info -Key 'VMState'
+    if (-not $currentState) {
+        $script:failures += "Key set - VMState missing, CANNOT VERIFY"
+        Write-Fail "Key set - VMState missing, CANNOT VERIFY"
         return
     }
+
+    $dir       = Split-Path $BaselinePath -Parent
+    $stem      = [System.IO.Path]::GetFileNameWithoutExtension($BaselinePath)
+    $statePath = Join-Path $dir "$stem-$currentState.txt"
+
+    if (-not (Test-Path $statePath)) {
+        Write-Warn "No '$currentState' baseline at '$statePath' - key-set drift NOT checked"
+        Write-Info "Capture one with Update-AISecLabBaseline.ps1 while the VM is $currentState"
+        $script:warnings += "No baseline for state '$currentState' - drift not checked"
+        return
+    }
+
+    $lines = @(Get-Content $statePath)
+
+    # The filename and the #vmstate= header state the same fact independently.
+    # If they disagree, a file was renamed or hand-edited, and the thing that
+    # tells us which comparison is valid is itself wrong. That is a failure, not
+    # a warning.
+    $baselineState = ($lines | Where-Object { $_ -match '^#vmstate=' } |
+                      Select-Object -First 1) -replace '^#vmstate=', ''
     if ($baselineState -ne $currentState) {
-        Write-Warn "Baseline captured with VMState=$baselineState, this VM is $currentState"
-        Write-Info "Key-set drift NOT checked. Compare in the state you baselined."
-        $script:warnings += "Baseline state mismatch - drift not checked"
+        $script:failures += "Baseline '$statePath' header says '$baselineState', filename says '$currentState'"
+        Write-Fail "Baseline filename and header disagree - CANNOT VERIFY"
         return
     }
 

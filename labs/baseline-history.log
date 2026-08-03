@@ -9,3 +9,9 @@
 2026-08-03T11:31:37.3545761-07:00    -removed  VideoMode
 2026-08-03T11:31:37.3545761-07:00    -removed  VRDEActiveConnection
 2026-08-03T11:31:37.3545761-07:00    -removed  VRDEClients
+2026-08-03T11:45:22.5528647-07:00  CREATED  154 keys  vm=ai-sec-lab
+2026-08-03T11:47:12.0721433-07:00  UPDATED  vm=ai-sec-lab  keys=158
+2026-08-03T11:47:12.0721433-07:00    +added    GuestAdditionsFacility_Graphics Mode
+2026-08-03T11:47:12.0721433-07:00    +added    GuestAdditionsFacility_Seamless Mode
+2026-08-03T11:47:12.0721433-07:00    +added    GuestAdditionsFacility_VirtualBox Base Driver
+2026-08-03T11:47:12.0721433-07:00    +added    GuestAdditionsVersion

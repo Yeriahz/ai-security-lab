@@ -94,6 +94,14 @@ if (-not $currentState) {
 }
 Write-Ok "VM state: $currentState"
 
+# One baseline per VM state. See Assert-KeySet in Verify-AISecLabVM.ps1 for why:
+# a running VM reports runtime-only keys that a powered-off one does not, so a
+# single baseline can only ever be valid in one state.
+$dir          = Split-Path $BaselinePath -Parent
+$stem         = [System.IO.Path]::GetFileNameWithoutExtension($BaselinePath)
+$BaselinePath = Join-Path $dir "$stem-$currentState.txt"
+Write-Info "Baseline for this state: $BaselinePath"
+
 # ==============================================================================
 # BOOTSTRAP - no baseline yet
 # ==============================================================================

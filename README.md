@@ -74,10 +74,22 @@ This compares the full property key set VirtualBox reports against
 
 The reported key set depends on VM state. A running VM emits runtime-only keys
 (`GuestAdditionsFacility_*`, `SessionName`, `VideoMode`, `VRDEClients` and
-others) that a powered-off VM does not, so the baseline records the state it was
-captured in on a `#vmstate=` header line. A mismatch is reported as **not
-checked** rather than as drift, because comparing across states would flag every
-runtime key as a rename.
+others) that a powered-off VM does not, so there is one baseline per state:
+`labs/baseline-keys-poweroff.txt` and `labs/baseline-keys-running.txt`. The
+verifier selects the one matching the live `VMState`, and warns that drift was
+**not checked** if that state has no baseline yet. A single baseline would leave
+drift unchecked in whichever state it was not captured in, and for this VM that
+would be the running one, which is exactly when untrusted code is executing.
+
+Each file also carries a `#vmstate=` header, so the filename and the contents
+state the same fact independently. If they disagree, a file was renamed or
+hand-edited and the thing that decides which comparison is valid is itself
+wrong, so that is a failure rather than a warning.
+
+Capture a running baseline only after the guest has finished booting. Four keys
+(`GuestAdditionsFacility_*`, `GuestAdditionsVersion`) appear a minute or so in,
+once the guest registers its facilities, so a baseline taken at boot is already
+stale.
 
 **Exit codes**
 
